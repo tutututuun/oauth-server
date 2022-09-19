@@ -89,10 +89,10 @@ func authCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func tokenHandler(w http.ResponseWriter, req *http.Request) {
-	cookie, _ := req.Cookie("session")
+	//cookie, _ := req.Cookie("session")
 	req.ParseForm()
 	query := req.Form
-	session := sessionList[cookie.Value]
+	//session := sessionList[cookie.Value]
 
 	requiredParameter := []string{"grant_type"}
 	w, okParam := checkParameter(query, requiredParameter, w)
@@ -144,11 +144,11 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 		}
 
 		// PKCE
-		if session.oidc == false && session.code_challenge != base64URLEncode(query.Get("code_verifier")) {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("PKCE check is err..."))
-			return
-		}
+		//if session.oidc == false && session.code_challenge != base64URLEncode(query.Get("code_verifier")) {
+		//	w.WriteHeader(http.StatusBadRequest)
+		//	w.Write([]byte("PKCE check is err..."))
+		//	return
+		//}
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
 		// 認可コードを削除
 		delete(AuthCodeList, query.Get("code"))
@@ -158,8 +158,8 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 		if !okParam {
 			return
 		}
-		v, okReflesh := RefreshTokenList[query.Get("refresh_token")]
-		if !okReflesh {
+		v, okRefresh := RefreshTokenList[query.Get("refresh_token")]
+		if !okRefresh {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. refresh_token is not match.\n")))
 			return
