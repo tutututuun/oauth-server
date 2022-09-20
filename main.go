@@ -128,18 +128,16 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(fmt.Sprintf("invalid_request. redirect_uri not match.\n")))
 			return
 		}
-
-		if v.expires_at < time.Now().Unix() {
-			log.Println("authcode expire")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("invalid_request. auth code time limit is expire.\n")))
-			return
-		}
-
 		if clientInfo.secret != query.Get("client_secret") {
 			log.Println("client_secret is not match.")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
+			return
+		}
+		if v.expires_at < time.Now().Unix() {
+			log.Println("authcode expire")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("invalid_request. auth code time limit is expire.\n")))
 			return
 		}
 
@@ -164,14 +162,28 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(fmt.Sprintf("invalid_request. refresh_token is not match.\n")))
 			return
 		}
+		if v.clientId != query.Get("client_id") {
+			log.Println("client_id not match")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("invalid_request. client_id not match.\n")))
+			return
+		}
+		if clientInfo.secret != query.Get("client_secret") {
+			log.Println("client_secret is not match.")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
+			return
+		}
 		if v.refresh_expires_at < time.Now().Unix() {
 			log.Println("authcode expire")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. Refresh toke time limit is expire.\n")))
+			//有効期限を過ぎているため、リフレッシュトークンを削除
+			delete(RefreshTokenList, query.Get("refresh_token"))
 			return
 		}
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
-		//リフレッシュトークンを削除
+		//トークンとリフレッシュを再発行するため、現在のリフレッシュトークンを削除
 		delete(RefreshTokenList, query.Get("refresh_token"))
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -186,6 +198,7 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 	TokenCodeList[tokenString] = tokenInfo
 	RefreshTokenList[refreshTokenString] = tokenInfo
 
+	// 払い出すトークン情報
 	tokenResp := TokenResponse{
 		AccessToken:  tokenString,
 		TokenType:    "Bearer",
