@@ -89,10 +89,15 @@ func authCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func tokenHandler(w http.ResponseWriter, req *http.Request) {
-	//cookie, _ := req.Cookie("session")
 	req.ParseForm()
 	query := req.Form
-	//session := sessionList[cookie.Value]
+	clientID, clientSecret, ok := req.BasicAuth()
+	if !ok {
+		log.Println("client not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client not match.\n")))
+		return
+	}
 
 	requiredParameter := []string{"grant_type"}
 	w, okParam := checkParameter(query, requiredParameter, w)
@@ -102,7 +107,7 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 	tokenInfo := TokenCode{}
 	switch query.Get("grant_type") {
 	case "authorization_code":
-		requiredParameter := []string{"code", "client_id", "redirect_uri"}
+		requiredParameter := []string{"code"}
 		w, okParam := checkParameter(query, requiredParameter, w)
 		if !okParam {
 			return
@@ -115,7 +120,7 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if v.clientId != query.Get("client_id") {
+		if v.clientId != clientID {
 			log.Println("client_id not match")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_id not match.\n")))
@@ -128,7 +133,7 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(fmt.Sprintf("invalid_request. redirect_uri not match.\n")))
 			return
 		}
-		if clientInfo.secret != query.Get("client_secret") {
+		if clientInfo.secret != clientSecret {
 			log.Println("client_secret is not match.")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
@@ -148,7 +153,6 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 		//	return
 		//}
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
-		// 認可コードを削除
 		delete(AuthCodeList, query.Get("code"))
 	case "refresh_token":
 		requiredParameter := []string{"refresh_token"}
@@ -162,16 +166,20 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(fmt.Sprintf("invalid_request. refresh_token is not match.\n")))
 			return
 		}
-		if v.clientId != query.Get("client_id") {
+		if v.clientId != clientID {
 			log.Println("client_id not match")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_id not match.\n")))
+			//不正アクセスが考えられるためトークンを削除
+			delete(RefreshTokenList, query.Get("refresh_token"))
 			return
 		}
-		if clientInfo.secret != query.Get("client_secret") {
+		if clientInfo.secret != clientSecret {
 			log.Println("client_secret is not match.")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
+			//不正アクセスが考えられるためトークンを削除
+			delete(RefreshTokenList, query.Get("refresh_token"))
 			return
 		}
 		if v.refresh_expires_at < time.Now().Unix() {

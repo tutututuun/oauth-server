@@ -3,10 +3,9 @@ package main
 import "html/template"
 
 const (
-	//SCOPE                 = "readonly"
-	SCOPE                  = "https://www.googleapis.com/auth/photoslibrary.readonly"
+	SCOPE                  = "read"
 	AUTH_CODE_DURATION     = 300
-	ACCESS_TOKEN_DURATION  = 3600
+	ACCESS_TOKEN_DURATION  = 60
 	REFRESH_TOKEN_DURATION = 3600 * 24 * 30
 )
 
@@ -90,6 +89,6 @@ var RefreshTokenList = make(map[string]TokenCode)
 var clientInfo = Client{
 	id:          "1234",
 	name:        "test",
-	redirectURL: "http://localhost:8080/callback",
+	redirectURL: "http://localhost:10080/callback",
 	secret:      "secret",
 }
