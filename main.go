@@ -12,14 +12,8 @@ import (
 
 func authHandler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	session := Session{
-		client:      query.Get("client_id"),
-		state:       query.Get("state"),
-		scopes:      query.Get("scope"),
-		redirectUri: query.Get("redirect_uri"),
-	}
 
-	requiredParameter := []string{"response_type", "client_id", "redirect_uri"}
+	requiredParameter := []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method"}
 	w, ok := checkParameter(query, requiredParameter, w)
 	if !ok {
 		return
@@ -30,11 +24,19 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("client_id is not match"))
 		return
 	}
-	// レスポンスタイプはいったん認可コードだけをサポート
+
 	if "code" != query.Get("response_type") {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("only support code"))
 		return
+	}
+	session := Session{
+		client:                query.Get("client_id"),
+		state:                 query.Get("state"),
+		scopes:                query.Get("scope"),
+		redirectUri:           query.Get("redirect_uri"),
+		code_challenge:        query.Get("code_challenge"),
+		code_challenge_method: query.Get("code_challenge_method"),
 	}
 	sessionId := uuid.New().String()
 	sessionList[sessionId] = session
@@ -88,10 +90,18 @@ func authCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func tokenHandler(w http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
-	query := req.Form
-	clientID, clientSecret, ok := req.BasicAuth()
+func tokenHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	query := r.Form
+	cookie, _ := r.Cookie("session")
+	session, ok := sessionList[cookie.Value]
+	if !ok {
+		log.Println("Invalid session")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. Invalid session.\n")))
+		return
+	}
+	clientID, clientSecret, ok := r.BasicAuth()
 	if !ok {
 		log.Println("client not match")
 		w.WriteHeader(http.StatusBadRequest)
@@ -107,7 +117,7 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 	tokenInfo := TokenCode{}
 	switch query.Get("grant_type") {
 	case "authorization_code":
-		requiredParameter := []string{"code"}
+		requiredParameter := []string{"code", "redirect_uri", "code_verifier"}
 		w, okParam := checkParameter(query, requiredParameter, w)
 		if !okParam {
 			return
@@ -139,6 +149,22 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
 			return
 		}
+		var code_challenge string
+		if session.code_challenge_method == "plain" {
+			code_challenge = query.Get("code_verifier")
+		} else if session.code_challenge_method == "S256" {
+			code_challenge = base64URLEncode(query.Get("code_verifier"))
+		} else {
+			log.Println("code_challenge is not match.")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("invalid_request. code_challenge is not match.\n")))
+			return
+		}
+		if session.code_challenge != code_challenge {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("PKCE check is err..."))
+			return
+		}
 		if v.expires_at < time.Now().Unix() {
 			log.Println("authcode expire")
 			w.WriteHeader(http.StatusBadRequest)
@@ -146,12 +172,6 @@ func tokenHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		// PKCE
-		//if session.oidc == false && session.code_challenge != base64URLEncode(query.Get("code_verifier")) {
-		//	w.WriteHeader(http.StatusBadRequest)
-		//	w.Write([]byte("PKCE check is err..."))
-		//	return
-		//}
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
 		delete(AuthCodeList, query.Get("code"))
 	case "refresh_token":
