@@ -94,14 +94,6 @@ func authCheckHandler(w http.ResponseWriter, r *http.Request) {
 func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	query := r.Form
-	cookie, _ := r.Cookie("session")
-	session, ok := sessionList[cookie.Value]
-	if !ok {
-		log.Println("Invalid session")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("invalid_request. Invalid session.\n")))
-		return
-	}
 	clientID, clientSecret, ok := r.BasicAuth()
 	if !ok {
 		log.Println("client not match")
@@ -118,6 +110,14 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	tokenInfo := TokenCode{}
 	switch query.Get("grant_type") {
 	case "authorization_code":
+		cookie, _ := r.Cookie("session")
+		session, ok := sessionList[cookie.Value]
+		if !ok {
+			log.Println("Invalid session")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(fmt.Sprintf("invalid_request. Invalid session.\n")))
+			return
+		}
 		requiredParameter := []string{"code", "redirect_uri", "code_verifier"}
 		w, okParam := checkParameter(query, requiredParameter, w)
 		if !okParam {
