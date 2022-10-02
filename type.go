@@ -52,6 +52,7 @@ type TokenCode struct {
 	user               string
 	clientId           string
 	scopes             string
+	create_at          int64
 	expires_at         int64
 	refresh_expires_at int64
 }
@@ -64,19 +65,18 @@ type TokenResponse struct {
 	IdToken      string `json:"id_token,omitempty"`
 }
 
+type JWT struct {
+	Typ string `json:"typ"`
+	Alg string `json:"alg"`
+}
+
 type Payload struct {
-	Iss        string `json:"iss"`
-	Azp        string `json:"azp"`
-	Aud        string `json:"aud"`
-	Sub        string `json:"sub"`
-	AtHash     string `json:"at_hash"`
-	Nonce      string `json:"nonce"`
-	Name       string `json:"name"`
-	GivenName  string `json:"given_name"`
-	FamilyName string `json:"family_name"`
-	Locale     string `json:"locale"`
-	Iat        int64  `json:"iat"`
-	Exp        int64  `json:"exp"`
+	Iss string `json:"iss"`
+	Sub string `json:"sub"`
+	Aud string `json:"aud"`
+	Iat int64  `json:"iat"`
+	Exp int64  `json:"exp"`
+	Jti string `json:"jti"`
 }
 
 var templates = template.Must(template.ParseFiles("login.html"))

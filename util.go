@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -37,13 +38,25 @@ func checkParameter(query url.Values, param []string, w http.ResponseWriter) (ht
 }
 
 func createTokenInfo(user string, clientId string, scopes string) TokenCode {
-	tokenExpireTime := time.Now().Unix() + ACCESS_TOKEN_DURATION
-	refreshTokenExpireTime := time.Now().Unix() + REFRESH_TOKEN_DURATION
+	nowTime := time.Now()
+	tokenExpireTime := nowTime.Unix() + ACCESS_TOKEN_DURATION
+	refreshTokenExpireTime := nowTime.Unix() + REFRESH_TOKEN_DURATION
 	return TokenCode{
 		user:               user,
 		clientId:           clientId,
 		scopes:             scopes,
+		create_at:          nowTime.Unix(),
 		expires_at:         tokenExpireTime,
 		refresh_expires_at: refreshTokenExpireTime,
 	}
+}
+
+func randomString(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
