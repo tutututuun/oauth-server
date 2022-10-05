@@ -68,6 +68,7 @@ type TokenResponse struct {
 type JWT struct {
 	Typ string `json:"typ"`
 	Alg string `json:"alg"`
+	Kid string `json:"kid"`
 }
 
 type Payload struct {

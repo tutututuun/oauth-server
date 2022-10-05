@@ -1,9 +1,14 @@
 package main
 
 import (
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -59,4 +64,26 @@ func randomString(n int) string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
+}
+
+func readPrivateKey(path string) (*rsa.PrivateKey, error) {
+	privateKeyData, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKeyBlock, _ := pem.Decode(privateKeyData)
+	if privateKeyBlock == nil {
+		return nil, errors.New("invalid private key data")
+	}
+	if privateKeyBlock.Type != "RSA PRIVATE KEY" {
+		return nil, errors.New(fmt.Sprintf("invalid private key type : %s", privateKeyBlock.Type))
+	}
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, err
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -221,23 +220,9 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//tokenString := uuid.New().String()
-	jwt := JWT{
-		Typ: "JWT",
-		Alg: "none",
-	}
-	jwt_b, _ := json.Marshal(jwt)
-	jwt_str := base64.URLEncoding.EncodeToString(jwt_b)
-	payload := Payload{
-		Iss: "http://localhost:8080/",
-		Sub: user.name,
-		Aud: "http://localhost:9000", //保護対象リソースを指定
-		Iat: tokenInfo.create_at,
-		Exp: tokenInfo.expires_at,
-		Jti: randomString(8),
-	}
-	payload_b, _ := json.Marshal(payload)
-	payload_str := base64.URLEncoding.EncodeToString(payload_b)
-	tokenString := jwt_str + "." + payload_str + "." + ""
+	tokenString := tokenInfo.createTokenStringBase64URLEncoding()
+	TestRSAVerify(tokenString)
+
 	refreshTokenString := uuid.New().String()
 
 	// 払い出したトークン情報を保存(DBではなく、メモリに保存)
@@ -252,10 +237,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refreshTokenString,
 	}
 
-	resp, err := json.Marshal(tokenResp)
-	if err != nil {
-		log.Println("json marshal err")
-	}
+	resp, _ := json.Marshal(tokenResp)
 
 	log.Printf("token ok to client %s, token is %s", tokenInfo.clientId, string(resp))
 	w.Header().Set("Content-Type", "application/json")
