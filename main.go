@@ -13,9 +13,8 @@ import (
 func authHandler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
-	requiredParameter := []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method"}
-	w, ok := checkParameter(query, requiredParameter, w)
-	if !ok {
+	requiredParameters := []string{"response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method"}
+	if !hasParameters(query, requiredParameters, w) {
 		return
 	}
 
@@ -102,8 +101,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requiredParameter := []string{"grant_type"}
-	w, okParam := checkParameter(query, requiredParameter, w)
-	if !okParam {
+	if !hasParameters(query, requiredParameter, w) {
 		return
 	}
 	tokenInfo := TokenCode{}
@@ -118,8 +116,7 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		requiredParameter := []string{"code", "redirect_uri", "code_verifier"}
-		w, okParam := checkParameter(query, requiredParameter, w)
-		if !okParam {
+		if !hasParameters(query, requiredParameter, w) {
 			return
 		}
 		v, okCode := AuthCodeList[query.Get("code")]
@@ -175,9 +172,8 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
 		delete(AuthCodeList, query.Get("code"))
 	case "refresh_token":
-		requiredParameter := []string{"refresh_token"}
-		w, okParam := checkParameter(query, requiredParameter, w)
-		if !okParam {
+		requiredParameters := []string{"refresh_token"}
+		if !hasParameters(query, requiredParameters, w) {
 			return
 		}
 		v, okRefresh := RefreshTokenList[query.Get("refresh_token")]
@@ -243,6 +239,10 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
+
+}
+
+func certHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 

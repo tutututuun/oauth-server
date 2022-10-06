@@ -30,16 +30,16 @@ func renderTemplate(w http.ResponseWriter, tmpl string, value interface{}) {
 	}
 }
 
-func checkParameter(query url.Values, param []string, w http.ResponseWriter) (http.ResponseWriter, bool) {
+func hasParameters(query url.Values, param []string, w http.ResponseWriter) bool {
 	for _, v := range param {
 		if _, ok := query[v]; !ok {
 			log.Printf("%s is missing", v)
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. %s is missing\n", v)))
-			return w, false
+			return false
 		}
 	}
-	return w, true
+	return true
 }
 
 func createTokenInfo(user string, clientId string, scopes string) TokenCode {
