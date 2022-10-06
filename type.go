@@ -86,10 +86,21 @@ var AuthCodeList = make(map[string]AuthCode)
 var TokenCodeList = make(map[string]TokenCode)
 var RefreshTokenList = make(map[string]TokenCode)
 
-// クライアント情報をハードコード
+// クライアントのクレデンシャル(ハードコード)
 var clientInfo = Client{
 	id:          "1234",
 	name:        "test",
 	redirectURL: "http://localhost:10080/callback",
 	secret:      "secret",
+}
+
+//保護対象リソースのクレデンシャル(ハードコード)
+type ProtectedResource struct {
+	id      string
+	sercret string
+}
+
+var protectedResourceInfo = ProtectedResource{
+	id:      "abcd",
+	sercret: "terces",
 }

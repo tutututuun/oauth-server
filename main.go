@@ -242,13 +242,61 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func certHandler(w http.ResponseWriter, r *http.Request) {
+func introspectHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	query := r.Form
+	requiredParameters := []string{"token"}
+	if !hasParameters(query, requiredParameters, w) {
+		return
+	}
 
+	clientID, clientSecret, ok := r.BasicAuth()
+	if !ok {
+		log.Println("client is not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client not match.\n")))
+		return
+	}
+	if clientID != protectedResourceInfo.id {
+		log.Println("client id is not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client id is not match.\n")))
+		return
+	}
+	if clientSecret != protectedResourceInfo.sercret {
+		log.Println("client secrer is not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client secrer is not match.\n")))
+		return
+	}
+
+	type _introspection struct {
+		Active bool `json:"active"`
+	}
+	var introspectionResponse = _introspection{
+		Active: false,
+	}
+
+	token := query.Get("token")
+	if _, ok := TokenCodeList[token]; ok {
+		introspectionResponse.Active = true
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		resp, _ := json.Marshal(introspectionResponse)
+		w.Write(resp)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	resp, _ := json.Marshal(introspectionResponse)
+	w.Write(resp)
+	return
 }
 
 func main() {
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/authcheck", authCheckHandler)
 	http.HandleFunc("/token", tokenHandler)
+	http.HandleFunc("/introspect", introspectHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
