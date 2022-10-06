@@ -293,10 +293,57 @@ func introspectHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func revokeHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	query := r.Form
+	clientID, clientSecret, ok := r.BasicAuth()
+	if !ok {
+		log.Println("client not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client not match.\n")))
+		return
+	}
+
+	requiredParameter := []string{"token"}
+	if !hasParameters(query, requiredParameter, w) {
+		return
+	}
+
+	//TODD: クライアント情報はDB登録してそこから取得することで複数クライアントに対応できる。
+	//今回は1クライアントなので、ハードコーディング情報から取得
+	if clientInfo.id != clientID {
+		log.Println("client_id is not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. client_id not match.\n")))
+		return
+	}
+	//TODO: 同上
+	if clientInfo.secret != clientSecret {
+		log.Println("client secret is not match")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("invalid_request. redirect_uri not match.\n")))
+		return
+	}
+
+	token := query.Get("token")
+	if _, ok := TokenCodeList[token]; ok {
+		delete(TokenCodeList, token)
+	}
+	if _, ok := RefreshTokenList[token]; ok {
+		delete(RefreshTokenList, token)
+		//TODO: 関連するトークン情報を削除する処理をいれる。
+	}
+	// セキュリティのため、トークンの削除できたかに関係なく、
+	// 正常に完了したこととする。
+	w.WriteHeader(http.StatusOK)
+	return
+}
+
 func main() {
 	http.HandleFunc("/auth", authHandler)
 	http.HandleFunc("/authcheck", authCheckHandler)
 	http.HandleFunc("/token", tokenHandler)
 	http.HandleFunc("/introspect", introspectHandler)
+	http.HandleFunc("/revoke", revokeHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
