@@ -1,6 +1,12 @@
 package main
 
-import "html/template"
+import (
+	"errors"
+	"fmt"
+	"html/template"
+	"log"
+	"time"
+)
 
 const (
 	SCOPE                  = "read"
@@ -46,6 +52,7 @@ type AuthCode struct {
 	scopes       string
 	redirect_uri string
 	expires_at   int64
+	err          error
 }
 
 type TokenCode struct {
@@ -85,6 +92,55 @@ var sessionList = make(map[string]Session)
 var AuthCodeList = make(map[string]AuthCode)
 var TokenCodeList = make(map[string]TokenCode)
 var RefreshTokenList = make(map[string]TokenCode)
+
+func (authCode *AuthCode) matchClientID(clientID string) {
+	if authCode.err != nil {
+		return
+	}
+	if authCode.clientId != clientID {
+		log.Println("client_id not match")
+		authCode.err = errors.New("invalid_request. client_id not match.")
+	}
+	return
+}
+
+func (authCode *AuthCode) matchRedirect_uri(redirect_uri string) {
+	if authCode.err != nil {
+		return
+	}
+	if authCode.redirect_uri != redirect_uri {
+		log.Println("redirect_uri not match")
+		authCode.err = errors.New("invalid_request. redirect_uri not match.")
+	}
+	return
+}
+
+func (authCode *AuthCode) chkExpires_at() {
+	if authCode.err != nil {
+		return
+	}
+	if authCode.expires_at < time.Now().Unix() {
+		log.Println("authcode expired")
+		authCode.err = errors.New("invalid_request. auth code time limit is expire.")
+	}
+	return
+}
+
+func (session *Session) verifyCodeChallenge(code_verifier string) error {
+	var code_challenge string
+	if session.code_challenge_method == "plain" {
+		code_challenge = code_verifier
+	} else if session.code_challenge_method == "S256" {
+		code_challenge = base64URLEncode(code_verifier)
+	} else {
+		log.Println("code_challenge is not match.")
+		return errors.New(fmt.Sprintf("invalid_request. code_challenge is not match.\n"))
+	}
+	if session.code_challenge != code_challenge {
+		return errors.New("PKCE check is err...")
+	}
+	return nil
+}
 
 // クライアントのクレデンシャル(ハードコード)
 var clientInfo = Client{

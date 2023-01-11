@@ -76,6 +76,7 @@ func authCheckHandler(w http.ResponseWriter, r *http.Request) {
 			scopes:       v.scopes,
 			redirect_uri: v.redirectUri,
 			expires_at:   time.Now().Unix() + 300,
+			err:          nil,
 		}
 
 		AuthCodeList[authCodeString] = authData
@@ -119,56 +120,34 @@ func tokenHandler(w http.ResponseWriter, r *http.Request) {
 		if !hasParameters(query, requiredParameter, w) {
 			return
 		}
-		v, okCode := AuthCodeList[query.Get("code")]
-		if !okCode {
+		v, ok := AuthCodeList[query.Get("code")]
+		if !ok {
 			log.Println("auth code isn't exist")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("no authrization code")))
 			return
 		}
 
-		if v.clientId != clientID {
-			log.Println("client_id not match")
+		v.matchClientID(clientID)
+		v.matchRedirect_uri(query.Get("redirect_uri"))
+		v.chkExpires_at()
+		if v.err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("invalid_request. client_id not match.\n")))
+			w.Write([]byte(fmt.Sprintf("%s\n", v.err.Error())))
 			return
 		}
 
-		if v.redirect_uri != query.Get("redirect_uri") {
-			log.Println("redirect_uri not match")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("invalid_request. redirect_uri not match.\n")))
-			return
-		}
 		if clientInfo.secret != clientSecret {
 			log.Println("client_secret is not match.")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(fmt.Sprintf("invalid_request. client_secret is not match.\n")))
 			return
 		}
-		var code_challenge string
-		if session.code_challenge_method == "plain" {
-			code_challenge = query.Get("code_verifier")
-		} else if session.code_challenge_method == "S256" {
-			code_challenge = base64URLEncode(query.Get("code_verifier"))
-		} else {
-			log.Println("code_challenge is not match.")
+		if err := session.verifyCodeChallenge(query.Get("code_verifier")); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("invalid_request. code_challenge is not match.\n")))
+			w.Write([]byte(err.Error()))
 			return
 		}
-		if session.code_challenge != code_challenge {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("PKCE check is err..."))
-			return
-		}
-		if v.expires_at < time.Now().Unix() {
-			log.Println("authcode expire")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(fmt.Sprintf("invalid_request. auth code time limit is expire.\n")))
-			return
-		}
-
 		tokenInfo = createTokenInfo(v.user, v.clientId, v.scopes)
 		delete(AuthCodeList, query.Get("code"))
 	case "refresh_token":
